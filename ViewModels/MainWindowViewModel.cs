@@ -106,8 +106,8 @@ namespace QRCodeScan.ViewModels
 
                     _frameCounter++;
 
-                    // Update camera image every 3 frames
-                    if (_frameCounter % 3 == 0)
+                    // Update camera image every 6 frames
+                    if (_frameCounter % 6 == 0)
                     {
                         UpdateCameraImage(frame);
                     }
@@ -140,15 +140,12 @@ namespace QRCodeScan.ViewModels
 
             try
             {
-                // Convert Mat directly to image bytes using OpenCV's imencode
-                using var clonedFrame = frame.Clone();
+                // Convert to grayscale for both display and faster processing
+                using var gray = new Mat();
+                Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
 
-                // Convert to RGB first (Avalonia expects RGB)
-                using var rgb = new Mat();
-                Cv2.CvtColor(clonedFrame, rgb, ColorConversionCodes.BGR2RGB);
-
-                // Encode as JPEG
-                Cv2.ImEncode(".jpg", rgb, out var imageBytes, new int[] { (int)ImwriteFlags.JpegQuality, 80 });
+                // Encode as JPEG (grayscale is much faster)
+                Cv2.ImEncode(".jpg", gray, out var imageBytes, new int[] { (int)ImwriteFlags.JpegQuality, 70 });
 
                 if (imageBytes != null && imageBytes.Length > 0)
                 {
