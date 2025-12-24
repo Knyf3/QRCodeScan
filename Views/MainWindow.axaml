@@ -3,22 +3,44 @@
         xmlns:vm="using:QRCodeScan.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="650"
         x:Class="QRCodeScan.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="QR Code Scanner"
-        Width="800" Height="600">
+        Width="800" Height="650">
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="*,Auto,Auto" Margin="20">
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="20">
+        
+        <!-- Camera Selection -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,15">
+            <TextBlock Text="Select Camera:" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
+            <Grid ColumnDefinitions="*,Auto">
+                <ComboBox Grid.Column="0"
+                          ItemsSource="{Binding AvailableCameras}"
+                          SelectedItem="{Binding SelectedCamera}"
+                          IsEnabled="{Binding !IsScanning}"
+                          HorizontalAlignment="Stretch"
+                          Margin="0,0,10,0">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayName}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Grid.Column="1"
+                        Command="{Binding RefreshCamerasCommand}"
+                        IsEnabled="{Binding !IsScanning}"
+                        Content="?? Refresh"
+                        Padding="15,8"/>
+            </Grid>
+        </StackPanel>
         
         <!-- Camera Feed -->
-        <Border Grid.Row="0" 
+        <Border Grid.Row="1" 
                 BorderBrush="Gray" 
                 BorderThickness="2" 
                 CornerRadius="8"
@@ -30,7 +52,7 @@
         </Border>
 
         <!-- Scanned Text Display -->
-        <Border Grid.Row="1" 
+        <Border Grid.Row="2" 
                 Margin="0,20,0,20"
                 Background="#F0F0F0"
                 CornerRadius="4"
@@ -43,7 +65,7 @@
         </Border>
 
         <!-- Control Buttons -->
-        <StackPanel Grid.Row="2" 
+        <StackPanel Grid.Row="3" 
                     Orientation="Horizontal" 
                     HorizontalAlignment="Center"
                     Spacing="10">

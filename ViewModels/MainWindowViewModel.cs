@@ -4,6 +4,8 @@ using CommunityToolkit.Mvvm.Input;
 using OpenCvSharp;
 using SkiaSharp;
 using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +29,12 @@ namespace QRCodeScan.ViewModels
         [ObservableProperty]
         private bool _isScanning;
 
+        [ObservableProperty]
+        private ObservableCollection<CameraDevice> _availableCameras = new();
+
+        [ObservableProperty]
+        private CameraDevice? _selectedCamera;
+
         public MainWindowViewModel()
         {
             _barcodeReader = new ZXing.SkiaSharp.BarcodeReader
@@ -39,12 +47,69 @@ namespace QRCodeScan.ViewModels
                     TryInverted = false
                 }
             };
+
+            // Detect available cameras on startup
+            DetectCameras();
+        }
+
+        private void DetectCameras()
+        {
+            AvailableCameras.Clear();
+
+            // Try to detect up to 10 camera devices
+            for (int i = 0; i < 10; i++)
+            {
+                try
+                {
+                    using var testCapture = new VideoCapture(i, VideoCaptureAPIs.DSHOW);
+                    if (testCapture.IsOpened())
+                    {
+                        // Get camera properties
+                        var width = testCapture.Get(VideoCaptureProperties.FrameWidth);
+                        var height = testCapture.Get(VideoCaptureProperties.FrameHeight);
+
+                        AvailableCameras.Add(new CameraDevice
+                        {
+                            Index = i,
+                            Name = $"Camera {i}",
+                            Resolution = $"{width}x{height}"
+                        });
+
+                        testCapture.Release();
+                    }
+                }
+                catch
+                {
+                    // Camera not available, continue
+                }
+            }
+
+            // Select first camera by default
+            if (AvailableCameras.Any())
+            {
+                SelectedCamera = AvailableCameras.First();
+            }
+        }
+
+        [RelayCommand]
+        private void RefreshCameras()
+        {
+            if (!IsScanning)
+            {
+                DetectCameras();
+            }
         }
 
         [RelayCommand]
         private async Task StartScanning()
         {
             if (IsScanning) return;
+
+            if (SelectedCamera == null)
+            {
+                ScannedText = "Error: No camera selected";
+                return;
+            }
 
             IsScanning = true;
             ScannedText = "Scanning...";
@@ -53,7 +118,8 @@ namespace QRCodeScan.ViewModels
 
             try
             {
-                _capture = new VideoCapture(0, VideoCaptureAPIs.DSHOW);
+                // Use selected camera index
+                _capture = new VideoCapture(SelectedCamera.Index, VideoCaptureAPIs.DSHOW);
 
                 _capture.Set(VideoCaptureProperties.FrameWidth, 640);
                 _capture.Set(VideoCaptureProperties.FrameHeight, 480);
@@ -238,5 +304,15 @@ namespace QRCodeScan.ViewModels
 
             return rgbaBitmap;
         }
+    }
+
+    // Camera device model
+    public class CameraDevice
+    {
+        public int Index { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Resolution { get; set; } = string.Empty;
+
+        public string DisplayName => $"{Name} ({Resolution})";
     }
 }
