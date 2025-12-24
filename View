@@ -1,0 +1,163 @@
+Models\MainWindowViewModel.cs
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia.Media.Imaging;
+using OpenCvSharp;
+using ZXing;
+using ZXing.SkiaSharp;
+using SkiaSharp;
+using System.Runtime.InteropServices;
+
+namespace QRCodeScan.ViewModels
+{
+    public partial class MainWindowViewModel : ViewModelBase
+    {
+        private VideoCapture? _capture;
+        private CancellationTokenSource? _cancellationTokenSource;
+        private readonly BarcodeReader _barcodeReader;
+
+        [ObservableProperty]
+        private WriteableBitmap? _cameraImage;
+
+        [ObservableProperty]
+        private string _scannedText = "No QR code detected";
+
+        [ObservableProperty]
+        private bool _isScanning;
+
+        public MainWindowViewModel()
+        {
+            _barcodeReader = new BarcodeReader
+            {
+                AutoRotate = true,
+                Options = new ZXing.Common.DecodingOptions
+                {
+                    PossibleFormats = new[] { BarcodeFormat.QR_CODE },
+                    TryHarder = true,
+                    TryInverted = true
+                }
+            };
+        }
+
+        [RelayCommand]
+        private async Task StartScanning()
+        {
+            if (IsScanning) return;
+
+            IsScanning = true;
+            ScannedText = "Scanning...";
+            _cancellationTokenSource = new CancellationTokenSource();
+
+            try
+            {
+                _capture = new VideoCapture(0); // 0 = default camera
+                _capture.Set(VideoCaptureProperties.FrameWidth, 640);
+                _capture.Set(VideoCaptureProperties.FrameHeight, 480);
+
+                if (!_capture.IsOpened())
+                {
+                    ScannedText = "Error: Cannot open camera";
+                    IsScanning = false;
+                    return;
+                }
+
+                await Task.Run(() => ProcessCamera(_cancellationTokenSource.Token));
+            }
+            catch (Exception ex)
+            {
+                ScannedText = $"Error: {ex.Message}";
+                IsScanning = false;
+            }
+        }
+
+        [RelayCommand]
+        private void StopScanning()
+        {
+            _cancellationTokenSource?.Cancel();
+            _capture?.Release();
+            _capture?.Dispose();
+            IsScanning = false;
+            ScannedText = "Scanning stopped";
+        }
+
+        private void ProcessCamera(CancellationToken token)
+        {
+            using var frame = new Mat();
+
+            while (!token.IsCancellationRequested && _capture?.IsOpened() == true)
+            {
+                _capture.Read(frame);
+
+                if (frame.Empty())
+                    continue;
+
+                // Convert to bitmap for display
+                UpdateCameraImage(frame);
+
+                // Decode QR code
+                DecodeQRCode(frame);
+
+                Thread.Sleep(100); // Adjust for performance
+            }
+        }
+
+        private void UpdateCameraImage(Mat frame)
+        {
+            try
+            {
+                // Convert Mat to byte array
+                var imageData = frame.ToBytes(".png");
+                
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    using var stream = new System.IO.MemoryStream(imageData);
+                    CameraImage = WriteableBitmap.Decode(stream);
+                });
+            }
+            catch { /* Ignore display errors */ }
+        }
+
+        private void DecodeQRCode(Mat frame)
+        {
+            try
+            {
+                // Convert OpenCV Mat to SKBitmap
+                using var skBitmap = MatToSKBitmap(frame);
+                
+                // Use the SkiaSharp extension method
+                var result = skBitmap.Decode();
+
+                if (result != null)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        ScannedText = $"QR Code: {result.Text}";
+                    });
+                }
+            }
+            catch { /* Ignore decode errors */ }
+        }
+
+        private SKBitmap MatToSKBitmap(Mat mat)
+        {
+            // Convert BGR to RGBA
+            using var rgba = new Mat();
+            Cv2.CvtColor(mat, rgba, ColorConversionCodes.BGR2RGBA);
+            
+            var info = new SKImageInfo(rgba.Width, rgba.Height, SKColorType.Rgba8888);
+            var bitmap = new SKBitmap(info);
+            
+            // Get pointer and copy data using byte array
+            IntPtr ptr = bitmap.GetPixels();
+            int totalBytes = (int)(rgba.Total() * rgba.ElemSize());
+            byte[] buffer = new byte[totalBytes];
+            Marshal.Copy(rgba.Data, buffer, 0, totalBytes);
+            Marshal.Copy(buffer, 0, ptr, totalBytes);
+            
+            return bitmap;
+        }
+    }
+}

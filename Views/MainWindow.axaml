@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:QRCodeScan.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+        x:Class="QRCodeScan.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="QR Code Scanner"
+        Width="800" Height="600">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="*,Auto,Auto" Margin="20">
+        
+        <!-- Camera Feed -->
+        <Border Grid.Row="0" 
+                BorderBrush="Gray" 
+                BorderThickness="2" 
+                CornerRadius="8"
+                Padding="10">
+            <Image Source="{Binding CameraImage}" 
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
+        </Border>
+
+        <!-- Scanned Text Display -->
+        <Border Grid.Row="1" 
+                Margin="0,20,0,20"
+                Background="#F0F0F0"
+                CornerRadius="4"
+                Padding="15">
+            <TextBlock Text="{Binding ScannedText}" 
+                       FontSize="16"
+                       FontWeight="Bold"
+                       TextWrapping="Wrap"
+                       HorizontalAlignment="Center"/>
+        </Border>
+
+        <!-- Control Buttons -->
+        <StackPanel Grid.Row="2" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Center"
+                    Spacing="10">
+            <Button Command="{Binding StartScanningCommand}"
+                    IsEnabled="{Binding !IsScanning}"
+                    Content="Start Scanning"
+                    Padding="20,10"
+                    FontSize="14"/>
+            <Button Command="{Binding StopScanningCommand}"
+                    IsEnabled="{Binding IsScanning}"
+                    Content="Stop Scanning"
+                    Padding="20,10"
+                    FontSize="14"/>
+        </StackPanel>
+        
+    </Grid>
+</Window>
